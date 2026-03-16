@@ -48,7 +48,7 @@ with st.sidebar:
         
     k1, k2, k3 = keyword1.strip(), keyword2.strip(), keyword3.strip()
     
-    # 한글(원본) 검색식 조합
+    # 구글 스칼라 및 화면 표출용 원본 논리식
     if k2 and k3: final_keyword_kr = f"(({k1}) {cond1} ({k2})) {cond2} ({k3})"
     elif k2: final_keyword_kr = f"({k1}) {cond1} ({k2})"
     elif k3: final_keyword_kr = f"({k1}) {cond2} ({k3})"
@@ -79,7 +79,6 @@ if search_button and k1:
     translator_ko_to_en = GoogleTranslator(source='auto', target='en')
     translator_en_to_ko = GoogleTranslator(source='en', target='ko')
     
-    # --- 1. 검색어 자동 번역 ---
     with st.spinner("검색어를 영어로 자동 번역 중입니다..."):
         try:
             k1_en = translator_ko_to_en.translate(k1)
@@ -91,21 +90,27 @@ if search_button and k1:
             elif k3_en: final_keyword_en = f"({k1_en}) {cond2} ({k3_en})"
             else: final_keyword_en = f"({k1_en})"
             
-            st.success(f"🔤 번역된 영어 검색식: **{final_keyword_en}** (이 키워드로 해외 논문을 검색합니다)")
+            st.success(f"🔤 번역된 영어 검색식: **{final_keyword_en}**")
         except Exception as e:
-            final_keyword_en = final_keyword_kr # 실패 시 원본 그대로 사용
+            final_keyword_en = final_keyword_kr
             st.warning("검색어 번역에 실패하여 원본 검색어로 진행합니다.")
 
-    # --- 2. 외부 데이터베이스 링크 (한글 원본 검색어 사용) ---
     st.subheader("🔗 국내/외부 데이터베이스 다이렉트 검색")
+    
+    # 💡 [핵심 수정] RISS와 KISS 전용 에러 방지 검색어 생성 (괄호, 영어 연산자 제거 후 띄어쓰기)
+    safe_kws = [k for k in [k1, k2, k3] if k]
+    safe_keyword_kr = " ".join(safe_kws)
+    encoded_safe_kr = urllib.parse.quote(safe_keyword_kr)
+    
+    # 구글 스칼라는 똑똑하므로 괄호 수식을 그대로 보냅니다.
     encoded_kw_kr = urllib.parse.quote(final_keyword_kr)
+    
     l_col1, l_col2, l_col3 = st.columns(3)
     if db_scholar: l_col1.markdown(f"[🎓 구글 스칼라 검색결과 보기](https://scholar.google.com/scholar?q={encoded_kw_kr})")
-    if db_riss: l_col2.markdown(f"[🇰🇷 RISS 통합검색 보기](http://www.riss.kr/search/Search.do?detailSearch=false&searchGubun=true&strQuery={encoded_kw_kr})")
-    if db_kiss: l_col3.markdown(f"[🇰🇷 KISS 통합검색 보기](https://kiss.kstudy.com/search/sch-result.asp?query={encoded_kw_kr})")
+    if db_riss: l_col2.markdown(f"[🇰🇷 RISS 통합검색 보기](http://www.riss.kr/search/Search.do?detailSearch=false&searchGubun=true&strQuery={encoded_safe_kr})")
+    if db_kiss: l_col3.markdown(f"[🇰🇷 KISS 통합검색 보기](https://kiss.kstudy.com/search/sch-result.asp?query={encoded_safe_kr})")
     st.divider()
 
-    # --- 3. PubMed/Cochrane 검색 (번역된 영어 검색어 사용) ---
     papers = []
     if db_pubmed or db_cochrane:
         with st.spinner("해외 논문을 분석하고 한글로 요약 번역 중입니다..."):
@@ -164,7 +169,6 @@ if search_button and k1:
             st.markdown(pd.DataFrame(papers).to_html(escape=False, index=False, classes="custom-table"), unsafe_allow_html=True)
             st.success(f"🎉 {len(papers)}개의 해외 논문을 찾고 한글 번역을 완료했습니다!")
 
-    # 4. 하단 AI 도구 링크
     st.divider()
     st.markdown("### 🚀 더 전문적인 분석을 위한 AI 도구 바로가기")
     st.markdown('''
