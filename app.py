@@ -140,11 +140,14 @@ if search_button and k1:
             st.success(f"🎉 {len(papers)}개의 논문을 찾았습니다.")
 
     st.divider()
+    st.divider()
     st.markdown("### 🚀 더 전문적인 분석을 위한 AI 도구 바로가기")
     st.markdown('''
         <div style="display: flex; justify-content: flex-start; flex-wrap: wrap;">
             <a href="https://typeset.io/" target="_blank" class="ai-link-button">🌐 SciSpace (한글 요약/채팅)</a>
             <a href="https://elicit.com/" target="_blank" class="ai-link-button">🔍 Elicit (연구 질문 분석)</a>
             <a href="https://consensus.app/" target="_blank" class="ai-link-button">🤝 Consensus (학계 합의 확인)</a>
+            <a href="https://www.chatpdf.com/" target="_blank" class="ai-link-button">💬 ChatPDF (PDF 대화 분석)</a>
+            <a href="https://www.deepl.com/translator" target="_blank" class="ai-link-button">📝 DeepL (최강 파일 번역기)</a>
         </div>
     ''', unsafe_allow_html=True)
