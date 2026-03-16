@@ -96,7 +96,6 @@ if search_button and k1:
 
     st.subheader("🔗 국내/외부 데이터베이스 다이렉트 검색")
     
-    # 💡 [핵심 해결] RISS와 KISS가 가장 잘 인식하는 형태로 검색어 정리
     safe_kws = [k for k in [k1, k2, k3] if k]
     safe_keyword_kr = " ".join(safe_kws)
     encoded_safe_kr = urllib.parse.quote(safe_keyword_kr)
@@ -105,13 +104,16 @@ if search_button and k1:
     
     l_col1, l_col2, l_col3 = st.columns(3)
     if db_scholar: l_col1.markdown(f"[🎓 구글 스칼라 검색](https://scholar.google.com/scholar?q={encoded_kw_kr})")
-    
-    # RISS 검색 주소 (검증 완료)
     if db_riss: l_col2.markdown(f"[🇰🇷 RISS 통합검색](http://www.riss.kr/search/Search.do?isDetailSearch=N&searchGubun=true&viewYn=OP&query={encoded_safe_kr})")
     
-    # KISS 검색 주소 (구형 asp 방식이 외부 링크 인식이 가장 확실합니다)
-    if db_kiss: l_col3.markdown(f"[🇰🇷 KISS 통합검색](https://kiss.kstudy.com/search/sch-result.asp?query={encoded_safe_kr})")
+    # 💡 [핵심 해결] KISS 철벽 방어 우회: 홈페이지 이동 + 복사 버튼 제공
+    if db_kiss: l_col3.markdown(f"[🇰🇷 KISS 홈페이지로 가기](https://kiss.kstudy.com/)")
+    
     st.divider()
+    
+    if db_kiss:
+        st.caption("🚨 **KISS 검색 안내:** KISS의 외부 검색 차단 정책으로 인해 다이렉트 연결이 불가능합니다. 아래 박스 우측 상단의 📋 버튼을 눌러 검색어를 복사한 뒤, KISS 홈페이지 검색창에 직접 붙여넣어 주세요.")
+        st.code(safe_keyword_kr, language="text")
 
     papers = []
     if db_pubmed or db_cochrane:
