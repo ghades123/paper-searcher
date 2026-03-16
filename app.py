@@ -96,7 +96,7 @@ if search_button and k1:
 
     st.subheader("🔗 국내/외부 데이터베이스 다이렉트 검색")
     
-    # 💡 [핵심 해결 포인트] RISS와 KISS가 요구하는 정확한 주소 파라미터(query=) 적용
+    # 💡 [핵심 해결] RISS와 KISS가 가장 잘 인식하는 형태로 검색어 정리
     safe_kws = [k for k in [k1, k2, k3] if k]
     safe_keyword_kr = " ".join(safe_kws)
     encoded_safe_kr = urllib.parse.quote(safe_keyword_kr)
@@ -104,13 +104,13 @@ if search_button and k1:
     encoded_kw_kr = urllib.parse.quote(final_keyword_kr)
     
     l_col1, l_col2, l_col3 = st.columns(3)
-    if db_scholar: l_col1.markdown(f"[🎓 구글 스칼라 검색결과 보기](https://scholar.google.com/scholar?q={encoded_kw_kr})")
+    if db_scholar: l_col1.markdown(f"[🎓 구글 스칼라 검색](https://scholar.google.com/scholar?q={encoded_kw_kr})")
     
-    # RISS 검색 주소 수정: query= 추가
-    if db_riss: l_col2.markdown(f"[🇰🇷 RISS 통합검색 보기](http://www.riss.kr/search/Search.do?isDetailSearch=N&searchGubun=true&viewYn=OP&query={encoded_safe_kr})")
+    # RISS 검색 주소 (검증 완료)
+    if db_riss: l_col2.markdown(f"[🇰🇷 RISS 통합검색](http://www.riss.kr/search/Search.do?isDetailSearch=N&searchGubun=true&viewYn=OP&query={encoded_safe_kr})")
     
-    # KISS 검색 주소 수정: 최신 버전 주소 반영
-    if db_kiss: l_col3.markdown(f"[🇰🇷 KISS 통합검색 보기](https://kiss.kstudy.com/search/search-result.do?query={encoded_safe_kr})")
+    # KISS 검색 주소 (구형 asp 방식이 외부 링크 인식이 가장 확실합니다)
+    if db_kiss: l_col3.markdown(f"[🇰🇷 KISS 통합검색](https://kiss.kstudy.com/search/sch-result.asp?query={encoded_safe_kr})")
     st.divider()
 
     papers = []
