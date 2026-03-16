@@ -30,34 +30,39 @@ st.markdown('''
 ''', unsafe_allow_html=True)
 
 st.title("🏥 EBP 종합 논문 검색기")
-st.markdown("PubMed/Cochrane 요약 검색 및 외부 DB 연동 / 추천 AI 도구 링크")
+st.markdown("한글 검색어 입력 시 **자동으로 영어로 번역**하여 전 세계 논문을 동시에 찾아줍니다!")
 
 with st.sidebar:
-    st.header("🔍 검색어 조합 설정")
+    st.header("🔍 검색어 조합 설정 (한/영 모두 가능)")
+    
     st.markdown("**1. 첫 번째 검색어 (필수)**")
-    keyword1 = st.text_input("ex) stroke", value="stroke", label_visibility="collapsed")
+    keyword1 = st.text_input("ex) 뇌졸중", value="뇌졸중", label_visibility="collapsed")
+    
     col1_1, col1_2 = st.columns([1, 2.5])
     with col1_1: cond1 = st.selectbox("조건 1", ["AND", "OR", "NOT"], key="c1")
-    with col1_2: keyword2 = st.text_input("두 번째 검색어 (선택)", value="physical therapy")
+    with col1_2: keyword2 = st.text_input("두 번째 검색어 (선택)", value="물리치료")
+        
     col2_1, col2_2 = st.columns([1, 2.5])
     with col2_1: cond2 = st.selectbox("조건 2", ["AND", "OR", "NOT"], key="c2")
-    with col2_2: keyword3 = st.text_input("세 번째 검색어 (선택)", value="rehabilitation")
+    with col2_2: keyword3 = st.text_input("세 번째 검색어 (선택)", value="재활")
         
     k1, k2, k3 = keyword1.strip(), keyword2.strip(), keyword3.strip()
-    if k2 and k3: final_keyword = f"(({k1}) {cond1} ({k2})) {cond2} ({k3})"
-    elif k2: final_keyword = f"({k1}) {cond1} ({k2})"
-    elif k3: final_keyword = f"({k1}) {cond2} ({k3})"
-    else: final_keyword = f"({k1})"
+    
+    # 한글(원본) 검색식 조합
+    if k2 and k3: final_keyword_kr = f"(({k1}) {cond1} ({k2})) {cond2} ({k3})"
+    elif k2: final_keyword_kr = f"({k1}) {cond1} ({k2})"
+    elif k3: final_keyword_kr = f"({k1}) {cond2} ({k3})"
+    else: final_keyword_kr = f"({k1})"
         
-    st.info(f"💡 검색식: \n{final_keyword}")
+    st.info(f"💡 원본 검색식: \n{final_keyword_kr}")
     
     st.markdown("---")
     st.header("📚 검색 대상 DB 선택")
     db_pubmed = st.checkbox("🟢 PubMed", value=True)
     db_cochrane = st.checkbox("🔵 Cochrane Library", value=True)
     db_scholar = st.checkbox("🎓 Google Scholar", value=True)
-    db_riss = st.checkbox("🇰🇷 RISS", value=False)
-    db_kiss = st.checkbox("🇰🇷 KISS", value=False)
+    db_riss = st.checkbox("🇰🇷 RISS", value=True)
+    db_kiss = st.checkbox("🇰🇷 KISS", value=True)
     
     st.markdown("---")
     st.header("📄 논문 유형 (PubMed)")
@@ -71,23 +76,43 @@ with st.sidebar:
     search_button = st.button("검색 실행 🚀")
 
 if search_button and k1:
-    st.subheader("🔗 외부 데이터베이스 다이렉트 검색")
-    encoded_kw = urllib.parse.quote(final_keyword)
+    translator_ko_to_en = GoogleTranslator(source='auto', target='en')
+    translator_en_to_ko = GoogleTranslator(source='en', target='ko')
+    
+    # --- 1. 검색어 자동 번역 ---
+    with st.spinner("검색어를 영어로 자동 번역 중입니다..."):
+        try:
+            k1_en = translator_ko_to_en.translate(k1)
+            k2_en = translator_ko_to_en.translate(k2) if k2 else ""
+            k3_en = translator_ko_to_en.translate(k3) if k3 else ""
+            
+            if k2_en and k3_en: final_keyword_en = f"(({k1_en}) {cond1} ({k2_en})) {cond2} ({k3_en})"
+            elif k2_en: final_keyword_en = f"({k1_en}) {cond1} ({k2_en})"
+            elif k3_en: final_keyword_en = f"({k1_en}) {cond2} ({k3_en})"
+            else: final_keyword_en = f"({k1_en})"
+            
+            st.success(f"🔤 번역된 영어 검색식: **{final_keyword_en}** (이 키워드로 해외 논문을 검색합니다)")
+        except Exception as e:
+            final_keyword_en = final_keyword_kr # 실패 시 원본 그대로 사용
+            st.warning("검색어 번역에 실패하여 원본 검색어로 진행합니다.")
+
+    # --- 2. 외부 데이터베이스 링크 (한글 원본 검색어 사용) ---
+    st.subheader("🔗 국내/외부 데이터베이스 다이렉트 검색")
+    encoded_kw_kr = urllib.parse.quote(final_keyword_kr)
     l_col1, l_col2, l_col3 = st.columns(3)
-    if db_scholar: l_col1.markdown(f"[🎓 구글 스칼라 검색](https://scholar.google.com/scholar?q={encoded_kw})")
-    if db_riss: l_col2.markdown(f"[🇰🇷 RISS 검색](http://www.riss.kr/search/Search.do?detailSearch=false&searchGubun=true&strQuery={encoded_kw})")
-    if db_kiss: l_col3.markdown(f"[🇰🇷 KISS 검색](https://kiss.kstudy.com/search/sch-result.asp?query={encoded_kw})")
+    if db_scholar: l_col1.markdown(f"[🎓 구글 스칼라 검색결과 보기](https://scholar.google.com/scholar?q={encoded_kw_kr})")
+    if db_riss: l_col2.markdown(f"[🇰🇷 RISS 통합검색 보기](http://www.riss.kr/search/Search.do?detailSearch=false&searchGubun=true&strQuery={encoded_kw_kr})")
+    if db_kiss: l_col3.markdown(f"[🇰🇷 KISS 통합검색 보기](https://kiss.kstudy.com/search/sch-result.asp?query={encoded_kw_kr})")
     st.divider()
 
+    # --- 3. PubMed/Cochrane 검색 (번역된 영어 검색어 사용) ---
     papers = []
-    translator = GoogleTranslator(source='en', target='ko')
-
     if db_pubmed or db_cochrane:
-        with st.spinner("논문을 분석하고 번역 중입니다..."):
+        with st.spinner("해외 논문을 분석하고 한글로 요약 번역 중입니다..."):
             try:
                 cochrane_ids, pubmed_ids = [], []
                 if db_cochrane:
-                    c_term = f"({final_keyword}) AND \"Cochrane Database Syst Rev\"[Journal]"
+                    c_term = f"({final_keyword_en}) AND \"Cochrane Database Syst Rev\"[Journal]"
                     url_c = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={c_term}&retmode=json&retmax={max_results}&mindate={start_year}&maxdate=2026&datetype=pdat"
                     cochrane_ids = requests.get(url_c).json().get('esearchresult', {}).get('idlist', [])
                 if db_pubmed:
@@ -96,7 +121,7 @@ if search_button and k1:
                     if type_cpg: types.append("practice guideline[Publication Type]")
                     if type_sr: types.append("systematic review[Publication Type]")
                     t_query = " OR ".join(types) if types else "journal article[Publication Type]"
-                    p_term = f"({final_keyword}) AND ({t_query}) NOT \"Cochrane Database Syst Rev\"[Journal]"
+                    p_term = f"({final_keyword_en}) AND ({t_query}) NOT \"Cochrane Database Syst Rev\"[Journal]"
                     url_p = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={p_term}&retmode=json&retmax={max_results}&mindate={start_year}&maxdate=2026&datetype=pdat"
                     pubmed_ids = requests.get(url_p).json().get('esearchresult', {}).get('idlist', [])
 
@@ -119,7 +144,7 @@ if search_button and k1:
                             if 'CONCLUSION' in lbl or 'RESULT' in lbl: summ_en += txt + " "
                         if not summ_en: summ_en = full_abs[-500:]
 
-                        try: kt, ks = translator.translate(title), translator.translate(summ_en)
+                        try: kt, ks = translator_en_to_ko.translate(title), translator_en_to_ko.translate(summ_en)
                         except: kt, ks = "번역 실패", "번역 실패"
 
                         tooltip = f"[제목 번역]\n{kt}\n\n[초록 요약]\n{ks}".replace('"', '&quot;').replace('\n', '&#10;')
@@ -135,11 +160,11 @@ if search_button and k1:
             except Exception as e: st.error(f"오류: {e}")
 
         if papers:
-            st.markdown("### 📊 분석 결과")
+            st.markdown("### 📊 해외 논문 분석 결과")
             st.markdown(pd.DataFrame(papers).to_html(escape=False, index=False, classes="custom-table"), unsafe_allow_html=True)
-            st.success(f"🎉 {len(papers)}개의 논문을 찾았습니다.")
+            st.success(f"🎉 {len(papers)}개의 해외 논문을 찾고 한글 번역을 완료했습니다!")
 
-    st.divider()
+    # 4. 하단 AI 도구 링크
     st.divider()
     st.markdown("### 🚀 더 전문적인 분석을 위한 AI 도구 바로가기")
     st.markdown('''
