@@ -84,4 +84,101 @@ if search_button and k1:
             k2_en = translator_ko_to_en.translate(k2) if k2 else ""
             k3_en = translator_ko_to_en.translate(k3) if k3 else ""
             
-            if k2_en and k3_en: final_keyword_en = f"(({k1_en}) {cond1} ({k2
+            if k2_en and k3_en: final_keyword_en = f"(({k1_en}) {cond1} ({k2_en})) {cond2} ({k3_en})"
+            elif k2_en: final_keyword_en = f"({k1_en}) {cond1} ({k2_en})"
+            elif k3_en: final_keyword_en = f"({k1_en}) {cond2} ({k3_en})"
+            else: final_keyword_en = f"({k1_en})"
+            
+            st.success(f"🔤 번역된 영어 검색식: **{final_keyword_en}**")
+        except Exception as e:
+            final_keyword_en = final_keyword_kr
+            st.warning("검색어 번역에 실패하여 원본 검색어로 진행합니다.")
+
+    st.subheader("🔗 국내/외부 데이터베이스 다이렉트 검색")
+    
+    # 💡 [핵심 해결 포인트] RISS와 KISS가 요구하는 정확한 주소 파라미터(query=) 적용
+    safe_kws = [k for k in [k1, k2, k3] if k]
+    safe_keyword_kr = " ".join(safe_kws)
+    encoded_safe_kr = urllib.parse.quote(safe_keyword_kr)
+    
+    encoded_kw_kr = urllib.parse.quote(final_keyword_kr)
+    
+    l_col1, l_col2, l_col3 = st.columns(3)
+    if db_scholar: l_col1.markdown(f"[🎓 구글 스칼라 검색결과 보기](https://scholar.google.com/scholar?q={encoded_kw_kr})")
+    
+    # RISS 검색 주소 수정: query= 추가
+    if db_riss: l_col2.markdown(f"[🇰🇷 RISS 통합검색 보기](http://www.riss.kr/search/Search.do?isDetailSearch=N&searchGubun=true&viewYn=OP&query={encoded_safe_kr})")
+    
+    # KISS 검색 주소 수정: 최신 버전 주소 반영
+    if db_kiss: l_col3.markdown(f"[🇰🇷 KISS 통합검색 보기](https://kiss.kstudy.com/search/search-result.do?query={encoded_safe_kr})")
+    st.divider()
+
+    papers = []
+    if db_pubmed or db_cochrane:
+        with st.spinner("해외 논문을 분석하고 한글로 요약 번역 중입니다..."):
+            try:
+                cochrane_ids, pubmed_ids = [], []
+                if db_cochrane:
+                    c_term = f"({final_keyword_en}) AND \"Cochrane Database Syst Rev\"[Journal]"
+                    url_c = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={c_term}&retmode=json&retmax={max_results}&mindate={start_year}&maxdate=2026&datetype=pdat"
+                    cochrane_ids = requests.get(url_c).json().get('esearchresult', {}).get('idlist', [])
+                if db_pubmed:
+                    types = []
+                    if type_rct: types.append("randomized controlled trial[Publication Type]")
+                    if type_cpg: types.append("practice guideline[Publication Type]")
+                    if type_sr: types.append("systematic review[Publication Type]")
+                    t_query = " OR ".join(types) if types else "journal article[Publication Type]"
+                    p_term = f"({final_keyword_en}) AND ({t_query}) NOT \"Cochrane Database Syst Rev\"[Journal]"
+                    url_p = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={p_term}&retmode=json&retmax={max_results}&mindate={start_year}&maxdate=2026&datetype=pdat"
+                    pubmed_ids = requests.get(url_p).json().get('esearchresult', {}).get('idlist', [])
+
+                all_ids = cochrane_ids + pubmed_ids
+                if all_ids:
+                    f_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id={','.join(all_ids)}&retmode=xml"
+                    soup = BeautifulSoup(requests.get(f_url).content, 'xml')
+                    for art in soup.find_all('PubmedArticle'):
+                        pmid = art.find('PMID').text if art.find('PMID') else ""
+                        title = art.find('ArticleTitle').text if art.find('ArticleTitle') else "제목 없음"
+                        jrnl = art.find('Title').text if art.find('Title') else ""
+                        yr = art.find('PubDate').find('Year').text if art.find('PubDate') and art.find('PubDate').find('Year') else "미상"
+                        
+                        abs_txts = art.find_all('AbstractText')
+                        summ_en, full_abs = "", ""
+                        for ab in abs_txts:
+                            lbl = ab.get('Label', '').upper()
+                            txt = ab.text.strip()
+                            full_abs += txt + " "
+                            if 'CONCLUSION' in lbl or 'RESULT' in lbl: summ_en += txt + " "
+                        if not summ_en: summ_en = full_abs[-500:]
+
+                        try: kt, ks = translator_en_to_ko.translate(title), translator_en_to_ko.translate(summ_en)
+                        except: kt, ks = "번역 실패", "번역 실패"
+
+                        tooltip = f"[제목 번역]\n{kt}\n\n[초록 요약]\n{ks}".replace('"', '&quot;').replace('\n', '&#10;')
+                        t_html = f'<span class="hover-title" title="{tooltip}">{title}</span>'
+                        
+                        pmc_id = ""
+                        for aid in art.find_all('ArticleId'):
+                            if aid.get('IdType') == 'pmc': pmc_id = aid.text
+                        l_html = f'<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/{pmc_id}/pdf/" target="_blank">🔓 무료 PDF</a>' if pmc_id else f'<a href="https://pubmed.ncbi.nlm.nih.gov/{pmid}/" target="_blank">🔗 원문 링크</a>'
+                        
+                        src = "🔵 Cochrane" if "Cochrane" in jrnl else "🟢 PubMed"
+                        papers.append({"출처": src, "연도": yr, "논문 제목 (마우스 오버)": t_html, "링크": l_html})
+            except Exception as e: st.error(f"오류: {e}")
+
+        if papers:
+            st.markdown("### 📊 해외 논문 분석 결과")
+            st.markdown(pd.DataFrame(papers).to_html(escape=False, index=False, classes="custom-table"), unsafe_allow_html=True)
+            st.success(f"🎉 {len(papers)}개의 해외 논문을 찾고 한글 번역을 완료했습니다!")
+
+    st.divider()
+    st.markdown("### 🚀 더 전문적인 분석을 위한 AI 도구 바로가기")
+    st.markdown('''
+        <div style="display: flex; justify-content: flex-start; flex-wrap: wrap;">
+            <a href="https://typeset.io/" target="_blank" class="ai-link-button">🌐 SciSpace (한글 요약/채팅)</a>
+            <a href="https://elicit.com/" target="_blank" class="ai-link-button">🔍 Elicit (연구 질문 분석)</a>
+            <a href="https://consensus.app/" target="_blank" class="ai-link-button">🤝 Consensus (학계 합의 확인)</a>
+            <a href="https://www.chatpdf.com/" target="_blank" class="ai-link-button">💬 ChatPDF (PDF 대화 분석)</a>
+            <a href="https://www.deepl.com/translator" target="_blank" class="ai-link-button">📝 DeepL (최강 파일 번역기)</a>
+        </div>
+    ''', unsafe_allow_html=True)
